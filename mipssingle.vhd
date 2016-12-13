@@ -230,7 +230,8 @@ architecture struct of controller is
          branch, alusrc:     out STD_LOGIC;
          regdst, regwrite:   out STD_LOGIC;
          jump:               out STD_LOGIC;
-         aluop:              out STD_LOGIC_VECTOR(1 downto 0));
+         aluop:              out STD_LOGIC_VECTOR(1 downto 0);
+		 branch_not:		 out STD_LOGIC);
   end component;
   component aludec
     port(funct:      in  STD_LOGIC_VECTOR(5 downto 0);
@@ -239,12 +240,15 @@ architecture struct of controller is
   end component;
   signal aluop:  STD_LOGIC_VECTOR(1 downto 0);
   signal branch: STD_LOGIC;
+  signal bnesig: STD_LOGIC;
+  signal branch_not: STD_LOGIC;
+
 begin
   md: maindec port map(op, memtoreg, memwrite, branch,
-                       alusrc, regdst, regwrite, jump, aluop);
+                       alusrc, regdst, regwrite, jump, aluop, branch_not);
   ad: aludec port map(funct, aluop, alucontrol);
-
-  pcsrc <= branch and zero;
+  bnesig <= branch_not xor zero;
+  pcsrc <= branch and bnesig;
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;
@@ -255,27 +259,29 @@ entity maindec is -- main control decoder
        branch, alusrc:     out STD_LOGIC;
        regdst, regwrite:   out STD_LOGIC;
        jump:               out STD_LOGIC;
-       aluop:              out STD_LOGIC_VECTOR(1 downto 0));
+       aluop:              out STD_LOGIC_VECTOR(1 downto 0);
+	   branch_not:		   out STD_LOGIC);
 end;
 
 architecture behave of maindec is
-  signal controls: STD_LOGIC_VECTOR(8 downto 0);
+  signal controls: STD_LOGIC_VECTOR(9 downto 0);
 begin
   process(all) begin
     case op is
-      when "000000" => controls <= "110000010"; -- RTYPE
-      when "100011" => controls <= "101001000"; -- LW
-      when "101011" => controls <= "001010000"; -- SW
-      when "000100" => controls <= "000100001"; -- BEQ
-      when "001000" => controls <= "101000000"; -- ADDI
-	  when "001101" => controls <= "101000011"; -- ORI
-      when "000010" => controls <= "000000100"; -- J
-      when others   => controls <= "---------"; -- illegal op
+      when "000000" => controls <= "1100000100"; -- RTYPE
+      when "100011" => controls <= "1010010000"; -- LW
+      when "101011" => controls <= "0010100000"; -- SW
+      when "000100" => controls <= "0001000010"; -- BEQ
+      when "001000" => controls <= "1010000000"; -- ADDI
+	  when "001101" => controls <= "1010000110"; -- ORI
+      when "000010" => controls <= "0000001000"; -- J
+	  when "000101" => controls <= "0001000011"; -- BNE
+      when others   => controls <= "----------"; -- illegal op
     end case;
   end process;
 
   (regwrite, regdst, alusrc, branch, memwrite,
-   memtoreg, jump, aluop(1 downto 0)) <= controls;
+   memtoreg, jump, aluop(1 downto 0), branch_not) <= controls;
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;
@@ -291,8 +297,7 @@ begin
   process(all) begin
     case aluop is
       when "00" => alucontrol <= "010"; -- add (for lw/sw/addi)
-      when "01" => alucontrol <= "110"; -- sub (for beq)
-	  when "11" => alucontrol <= "001"; -- or  (for ori)
+      when "01" => alucontrol <= "110"; -- sub (for beq, bne)
       when others => case funct is      -- R-type instructions
                          when "100000" => alucontrol <= "010"; -- add 
                          when "100010" => alucontrol <= "110"; -- sub
