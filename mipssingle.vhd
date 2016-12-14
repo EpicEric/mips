@@ -139,7 +139,7 @@ begin
       mem(i) := (others => '0'); 
     end loop;
     index := 0; 
-    FILE_OPEN(mem_file, "/home/susko/Downloads/memfile2.dat", READ_MODE); --"C:/Users/Eric/Downloads/memfile.dat"
+    FILE_OPEN(mem_file, "/home/susko/Downloads/memfile2.dat", READ_MODE);
     while not endfile(mem_file) loop
       readline(mem_file, L);
       result := 0;	
@@ -152,7 +152,7 @@ begin
         else report "Format error on line " & integer'image(index)
              severity error;
         end if;
-        mem(index)(35-i*4 downto 32-i*4) :=to_std_logic_vector(result,4);
+        mem(index)(35-i*4 downto 32-i*4) := to_std_logic_vector(result,4);
       end loop;
       index := index + 1;
     end loop;
@@ -185,7 +185,7 @@ architecture struct of mips is
          regdst, regwrite:   out STD_LOGIC;
          jump:               out STD_LOGIC;
          alucontrol:         out STD_LOGIC_VECTOR(2 downto 0);
-         unsig_ext:		     out STD_LOGIC);
+         unsig_ext:          out STD_LOGIC);
   end component;
   component datapath
     port(clk, reset:        in  STD_LOGIC;
@@ -235,8 +235,8 @@ architecture struct of controller is
          regdst, regwrite:   out STD_LOGIC;
          jump:               out STD_LOGIC;
          aluop:              out STD_LOGIC_VECTOR(1 downto 0);
-		 branch_not:		 out STD_LOGIC;
-         unsig_ext:		     out STD_LOGIC);
+         branch_not:         out STD_LOGIC;
+         unsig_ext:          out STD_LOGIC);
   end component;
   component aludec
     port(funct:      in  STD_LOGIC_VECTOR(5 downto 0);
@@ -265,8 +265,8 @@ entity maindec is -- main control decoder
        regdst, regwrite:   out STD_LOGIC;
        jump:               out STD_LOGIC;
        aluop:              out STD_LOGIC_VECTOR(1 downto 0);
-	   branch_not:		   out STD_LOGIC;
-	   unsig_ext:		   out STD_LOGIC);
+       branch_not:         out STD_LOGIC;
+       unsig_ext:          out STD_LOGIC);
 end;
 
 architecture behave of maindec is
@@ -278,10 +278,10 @@ begin
       when "100011" => controls <= "10100100000"; -- LW
       when "101011" => controls <= "00101000000"; -- SW
       when "000100" => controls <= "00010000100"; -- BEQ
+      when "000101" => controls <= "00010000110"; -- BNE
       when "001000" => controls <= "10100000000"; -- ADDI
-	  when "001101" => controls <= "10100001101"; -- ORI
+      when "001101" => controls <= "10100001101"; -- ORI
       when "000010" => controls <= "00000010000"; -- J
-	  when "000101" => controls <= "00010000110"; -- BNE
       when others   => controls <= "-----------"; -- illegal op
     end case;
   end process;
@@ -304,7 +304,7 @@ begin
     case aluop is
       when "00" => alucontrol <= "010"; -- add (for lw/sw/addi)
       when "01" => alucontrol <= "110"; -- sub (for beq, bne)
-      when "11" => alucontrol <= "001"; -- or
+      when "11" => alucontrol <= "001"; -- or  (for ori)
       when others => case funct is      -- R-type instructions
                          when "100000" => alucontrol <= "010"; -- add 
                          when "100010" => alucontrol <= "110"; -- sub
@@ -330,7 +330,7 @@ entity datapath is  -- MIPS datapath
        instr:             in  STD_LOGIC_VECTOR(31 downto 0);
        aluout, writedata: buffer STD_LOGIC_VECTOR(31 downto 0);
        readdata:          in  STD_LOGIC_VECTOR(31 downto 0);
-       unsig_ext:		  in STD_LOGIC);
+       unsig_ext:         in STD_LOGIC);
 end;
 
 architecture struct of datapath is
@@ -357,8 +357,8 @@ architecture struct of datapath is
   end component;
   component signext
     port(control: in STD_LOGIC;
-		 a: in  STD_LOGIC_VECTOR(15 downto 0);
-         y: out STD_LOGIC_VECTOR(31 downto 0));
+         a:       in  STD_LOGIC_VECTOR(15 downto 0);
+         y:       out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   component flopr generic(width: integer);
     port(clk, reset: in  STD_LOGIC;
@@ -389,8 +389,8 @@ begin
 
   -- register file logic
   rf: regfile port map(clk, regwrite, instr(25 downto 21), 
-                       instr(20 downto 16), writereg, result, srca, 
-				writedata);
+                       instr(20 downto 16), writereg, result,
+                       srca, writedata);
   wrmux: mux2 generic map(5) port map(instr(20 downto 16), 
                                       instr(15 downto 11), 
                                       regdst, writereg);
