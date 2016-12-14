@@ -477,7 +477,7 @@ end;
 
 architecture behave of signext is
 begin
-	process(control, a(15))
+	process(control, a)
 	begin
 	  if control = '1' then
 		y <= X"0000" & a;
