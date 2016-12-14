@@ -139,7 +139,7 @@ begin
       mem(i) := (others => '0'); 
     end loop;
     index := 0; 
-    FILE_OPEN(mem_file, "C:/Users/Eric/Downloads/memfile.dat", READ_MODE);
+    FILE_OPEN(mem_file, "/home/susko/Downloads/memfile2.dat", READ_MODE); --"C:/Users/Eric/Downloads/memfile.dat"
     while not endfile(mem_file) loop
       readline(mem_file, L);
       result := 0;	
@@ -184,7 +184,8 @@ architecture struct of mips is
          pcsrc, alusrc:      out STD_LOGIC;
          regdst, regwrite:   out STD_LOGIC;
          jump:               out STD_LOGIC;
-         alucontrol:         out STD_LOGIC_VECTOR(2 downto 0));
+         alucontrol:         out STD_LOGIC_VECTOR(2 downto 0);
+         unsig_ext:		     out STD_LOGIC);
   end component;
   component datapath
     port(clk, reset:        in  STD_LOGIC;
@@ -196,18 +197,20 @@ architecture struct of mips is
          pc:                buffer STD_LOGIC_VECTOR(31 downto 0);
          instr:             in STD_LOGIC_VECTOR(31 downto 0);
          aluout, writedata: buffer STD_LOGIC_VECTOR(31 downto 0);
-         readdata:          in  STD_LOGIC_VECTOR(31 downto 0));
+         readdata:          in  STD_LOGIC_VECTOR(31 downto 0);
+         unsig_ext:		    in STD_LOGIC);
   end component;
   signal memtoreg, alusrc, regdst, regwrite, jump, pcsrc: STD_LOGIC;
   signal zero: STD_LOGIC;
   signal alucontrol: STD_LOGIC_VECTOR(2 downto 0);
+  signal unsig_ext: STD_LOGIC;
 begin
   cont: controller port map(instr(31 downto 26), instr(5 downto 0),
                             zero, memtoreg, memwrite, pcsrc, alusrc,
-                            regdst, regwrite, jump, alucontrol);
+                            regdst, regwrite, jump, alucontrol, unsig_ext);
   dp: datapath port map(clk, reset, memtoreg, pcsrc, alusrc, regdst,
                         regwrite, jump, alucontrol, zero, pc, instr,
-                        aluout, writedata, readdata);
+                        aluout, writedata, readdata, unsig_ext);
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;
@@ -219,7 +222,8 @@ entity controller is -- single cycle control decoder
        pcsrc, alusrc:      out STD_LOGIC;
        regdst, regwrite:   out STD_LOGIC;
        jump:               out STD_LOGIC;
-       alucontrol:         out STD_LOGIC_VECTOR(2 downto 0));
+       alucontrol:         out STD_LOGIC_VECTOR(2 downto 0);
+       unsig_ext:		   out STD_LOGIC);
 end;
 
 
@@ -231,7 +235,8 @@ architecture struct of controller is
          regdst, regwrite:   out STD_LOGIC;
          jump:               out STD_LOGIC;
          aluop:              out STD_LOGIC_VECTOR(1 downto 0);
-		 branch_not:		 out STD_LOGIC);
+		 branch_not:		 out STD_LOGIC;
+         unsig_ext:		     out STD_LOGIC);
   end component;
   component aludec
     port(funct:      in  STD_LOGIC_VECTOR(5 downto 0);
@@ -245,7 +250,7 @@ architecture struct of controller is
 
 begin
   md: maindec port map(op, memtoreg, memwrite, branch,
-                       alusrc, regdst, regwrite, jump, aluop, branch_not);
+                       alusrc, regdst, regwrite, jump, aluop, branch_not, unsig_ext);
   ad: aludec port map(funct, aluop, alucontrol);
   bnesig <= branch_not xor zero;
   pcsrc <= branch and bnesig;
@@ -260,28 +265,29 @@ entity maindec is -- main control decoder
        regdst, regwrite:   out STD_LOGIC;
        jump:               out STD_LOGIC;
        aluop:              out STD_LOGIC_VECTOR(1 downto 0);
-	   branch_not:		   out STD_LOGIC);
+	   branch_not:		   out STD_LOGIC;
+	   unsig_ext:		   out STD_LOGIC);
 end;
 
 architecture behave of maindec is
-  signal controls: STD_LOGIC_VECTOR(9 downto 0);
+  signal controls: STD_LOGIC_VECTOR(10 downto 0);
 begin
   process(all) begin
     case op is
-      when "000000" => controls <= "1100000100"; -- RTYPE
-      when "100011" => controls <= "1010010000"; -- LW
-      when "101011" => controls <= "0010100000"; -- SW
-      when "000100" => controls <= "0001000010"; -- BEQ
-      when "001000" => controls <= "1010000000"; -- ADDI
-	  when "001101" => controls <= "1010000110"; -- ORI
-      when "000010" => controls <= "0000001000"; -- J
-	  when "000101" => controls <= "0001000011"; -- BNE
-      when others   => controls <= "----------"; -- illegal op
+      when "000000" => controls <= "11000001000"; -- RTYPE
+      when "100011" => controls <= "10100100000"; -- LW
+      when "101011" => controls <= "00101000000"; -- SW
+      when "000100" => controls <= "00010000100"; -- BEQ
+      when "001000" => controls <= "10100000000"; -- ADDI
+	  when "001101" => controls <= "10100001101"; -- ORI
+      when "000010" => controls <= "00000010000"; -- J
+	  when "000101" => controls <= "00010000110"; -- BNE
+      when others   => controls <= "-----------"; -- illegal op
     end case;
   end process;
 
   (regwrite, regdst, alusrc, branch, memwrite,
-   memtoreg, jump, aluop(1 downto 0), branch_not) <= controls;
+   memtoreg, jump, aluop(1 downto 0), branch_not, unsig_ext) <= controls;
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;
@@ -323,7 +329,8 @@ entity datapath is  -- MIPS datapath
        pc:                buffer STD_LOGIC_VECTOR(31 downto 0);
        instr:             in  STD_LOGIC_VECTOR(31 downto 0);
        aluout, writedata: buffer STD_LOGIC_VECTOR(31 downto 0);
-       readdata:          in  STD_LOGIC_VECTOR(31 downto 0));
+       readdata:          in  STD_LOGIC_VECTOR(31 downto 0);
+       unsig_ext:		  in STD_LOGIC);
 end;
 
 architecture struct of datapath is
@@ -349,7 +356,8 @@ architecture struct of datapath is
          y: out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   component signext
-    port(a: in  STD_LOGIC_VECTOR(15 downto 0);
+    port(control: in STD_LOGIC;
+		 a: in  STD_LOGIC_VECTOR(15 downto 0);
          y: out STD_LOGIC_VECTOR(31 downto 0));
   end component;
   component flopr generic(width: integer);
@@ -388,7 +396,7 @@ begin
                                       regdst, writereg);
   resmux: mux2 generic map(32) port map(aluout, readdata, 
                                         memtoreg, result);
-  se: signext port map(instr(15 downto 0), signimm);
+  se: signext port map(unsig_ext, instr(15 downto 0), signimm);
 
   -- ALU logic
   srcbmux: mux2 generic map(32) port map(writedata, signimm, alusrc, 
@@ -462,13 +470,23 @@ end;
 library IEEE; use IEEE.STD_LOGIC_1164.all;
 
 entity signext is -- sign extender
-  port(a: in  STD_LOGIC_VECTOR(15 downto 0);
+  port(control: in STD_LOGIC;
+	   a: in  STD_LOGIC_VECTOR(15 downto 0);
        y: out STD_LOGIC_VECTOR(31 downto 0));
 end;
 
 architecture behave of signext is
 begin
-  y <= X"ffff" & a when a(15) else X"0000" & a; 
+	process(control, a(15))
+	begin
+	  if control = '1' then
+		y <= X"0000" & a;
+	  elsif a(15) = '1' then
+	  	y <= X"ffff" & a;
+	  else
+	 	y <= X"0000" & a;
+	  end if;
+	end process;
 end;
 
 library IEEE; use IEEE.STD_LOGIC_1164.all;  use IEEE.STD_LOGIC_ARITH.all;
